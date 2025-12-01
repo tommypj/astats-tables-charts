@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer:v2
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --prefer-dist
+
+      - name: Create plugin directory
+        run: |
+          mkdir -p build/astats-tables-charts
+          rsync -av --exclude='.git' \
+                    --exclude='.github' \
+                    --exclude='build' \
+                    --exclude='.gitignore' \
+                    --exclude='composer.lock' \
+                    --exclude='*.zip' \
+                    --exclude='.env*' \
+                    --exclude='node_modules' \
+                    --exclude='tests' \
+                    --exclude='phpunit.xml' \
+                    --exclude='phpcs.xml' \
+                    --exclude='.phpcs.xml' \
+                    --exclude='*.log' \
+                    ./ build/astats-tables-charts/
+
+      - name: Create ZIP archive
+        run: |
+          cd build
+          zip -r astats-tables-charts-${{ steps.get_version.outputs.VERSION }}.zip astats-tables-charts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## AStats Tables & Charts v${{ steps.get_version.outputs.VERSION }}
+
+            ### Installation
+            1. Download the `astats-tables-charts-${{ steps.get_version.outputs.VERSION }}.zip` file
+            2. Go to WordPress Admin > Plugins > Add New > Upload Plugin
+            3. Upload the ZIP file and activate
+
+            ### Changelog
+            See [CHANGELOG.md](https://github.com/tommypj/astats-tables-charts/blob/main/CHANGELOG.md) for details.
+          files: build/astats-tables-charts-${{ steps.get_version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

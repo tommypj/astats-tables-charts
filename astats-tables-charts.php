@@ -12,6 +12,8 @@
  * Domain Path: /languages
  * Requires at least: 5.0
  * Requires PHP: 7.4
+ * Update URI: https://github.com/tommypj/astats-tables-charts
+ * Upgrade Notice: This plugin uses a release asset for updates.
  *
  * @package AStats\TablesCharts
  */
