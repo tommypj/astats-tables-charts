@@ -131,9 +131,9 @@ class Module extends AbstractModule {
                 'confirmDelete' => __( 'Are you sure you want to delete this table?', 'astats-tables-charts' ),
                 'error'         => __( 'An error occurred', 'astats-tables-charts' ),
                 'titleRequired' => __( 'Please enter a table title', 'astats-tables-charts' ),
-                'chooseFile'    => __( 'Choose a CSV file or drag it here', 'astats-tables-charts' ),
-                'invalidFile'   => __( 'Please select a CSV file', 'astats-tables-charts' ),
-                'noFile'        => __( 'Please select a CSV file', 'astats-tables-charts' ),
+                'chooseFile'    => __( 'Choose a CSV or Excel file, or drag it here', 'astats-tables-charts' ),
+                'invalidFile'   => __( 'Please select a CSV or Excel file (.csv, .xlsx, .xls)', 'astats-tables-charts' ),
+                'noFile'        => __( 'Please select a file', 'astats-tables-charts' ),
                 'importing'     => __( 'Importing...', 'astats-tables-charts' ),
                 'importBtn'     => __( 'Import Table', 'astats-tables-charts' ),
                 'previewInfo'   => __( 'Preview: {cols} columns, {rows} rows', 'astats-tables-charts' ),
@@ -483,7 +483,7 @@ class Module extends AbstractModule {
     }
 
     /**
-     * AJAX: Import CSV file
+     * AJAX: Import CSV or Excel file
      */
     public function ajax_import_csv() {
         check_ajax_referer( 'astats_tables_nonce', 'nonce' );
@@ -492,8 +492,9 @@ class Module extends AbstractModule {
             wp_send_json_error( array( 'message' => __( 'Unauthorized', 'astats-tables-charts' ) ) );
         }
 
-        // Check if file was uploaded
-        if ( ! isset( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK ) {
+        // Check if file was uploaded (support both old and new field names)
+        $file_key = isset( $_FILES['import_file'] ) ? 'import_file' : 'csv_file';
+        if ( ! isset( $_FILES[ $file_key ] ) || $_FILES[ $file_key ]['error'] !== UPLOAD_ERR_OK ) {
             wp_send_json_error( array( 'message' => __( 'No file uploaded or upload error', 'astats-tables-charts' ) ) );
         }
 
@@ -505,49 +506,35 @@ class Module extends AbstractModule {
         }
 
         // Validate file type
-        $file = $_FILES['csv_file'];
+        $file = $_FILES[ $file_key ];
         $file_ext = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+        $allowed_extensions = array( 'csv', 'xlsx', 'xls' );
 
-        if ( 'csv' !== $file_ext ) {
-            wp_send_json_error( array( 'message' => __( 'Only CSV files are allowed', 'astats-tables-charts' ) ) );
+        if ( ! in_array( $file_ext, $allowed_extensions, true ) ) {
+            wp_send_json_error( array( 'message' => __( 'Only CSV and Excel files (.csv, .xlsx, .xls) are allowed', 'astats-tables-charts' ) ) );
         }
 
-        // Read CSV file
-        $handle = fopen( $file['tmp_name'], 'r' );
-
-        if ( ! $handle ) {
-            wp_send_json_error( array( 'message' => __( 'Could not read file', 'astats-tables-charts' ) ) );
+        // Parse file based on type
+        if ( 'csv' === $file_ext ) {
+            $parsed_data = $this->parse_csv_file( $file['tmp_name'] );
+        } else {
+            $parsed_data = $this->parse_excel_file( $file['tmp_name'] );
         }
 
-        $csv_data = array();
-        $row_count = 0;
-
-        while ( ( $row = fgetcsv( $handle ) ) !== false ) {
-            // Skip empty rows
-            if ( empty( array_filter( $row ) ) ) {
-                continue;
-            }
-            $csv_data[] = $row;
-            $row_count++;
-
-            // Limit rows to prevent memory issues
-            if ( $row_count > 10000 ) {
-                break;
-            }
+        if ( is_wp_error( $parsed_data ) ) {
+            wp_send_json_error( array( 'message' => $parsed_data->get_error_message() ) );
         }
 
-        fclose( $handle );
-
-        if ( empty( $csv_data ) ) {
-            wp_send_json_error( array( 'message' => __( 'CSV file is empty', 'astats-tables-charts' ) ) );
+        if ( empty( $parsed_data ) ) {
+            wp_send_json_error( array( 'message' => __( 'File is empty or could not be read', 'astats-tables-charts' ) ) );
         }
 
         // Extract columns and rows
         if ( $has_header ) {
-            $columns = array_shift( $csv_data );
+            $columns = array_shift( $parsed_data );
         } else {
             // Generate column names
-            $col_count = count( $csv_data[0] );
+            $col_count = count( $parsed_data[0] );
             $columns = array();
             for ( $i = 1; $i <= $col_count; $i++ ) {
                 $columns[] = sprintf( __( 'Column %d', 'astats-tables-charts' ), $i );
@@ -596,7 +583,7 @@ class Module extends AbstractModule {
         }
 
         // Insert rows
-        foreach ( $csv_data as $order => $row ) {
+        foreach ( $parsed_data as $order => $row ) {
             $row_data = array();
 
             foreach ( $row as $col_index => $value ) {
@@ -619,10 +606,117 @@ class Module extends AbstractModule {
                 /* translators: 1: number of columns, 2: number of rows */
                 __( 'Table imported successfully with %1$d columns and %2$d rows', 'astats-tables-charts' ),
                 count( $columns ),
-                count( $csv_data )
+                count( $parsed_data )
             ),
             'table_id' => $table_id,
             'redirect' => admin_url( 'admin.php?page=astats-tables&action=edit&id=' . $table_id ),
         ) );
+    }
+
+    /**
+     * Parse CSV file
+     *
+     * @param string $file_path Path to the CSV file.
+     * @return array|WP_Error Parsed data or error.
+     */
+    private function parse_csv_file( $file_path ) {
+        $handle = fopen( $file_path, 'r' );
+
+        if ( ! $handle ) {
+            return new \WP_Error( 'read_error', __( 'Could not read file', 'astats-tables-charts' ) );
+        }
+
+        $data = array();
+        $row_count = 0;
+
+        while ( ( $row = fgetcsv( $handle ) ) !== false ) {
+            // Skip empty rows
+            if ( empty( array_filter( $row ) ) ) {
+                continue;
+            }
+            $data[] = $row;
+            $row_count++;
+
+            // Limit rows to prevent memory issues
+            if ( $row_count > 10000 ) {
+                break;
+            }
+        }
+
+        fclose( $handle );
+
+        return $data;
+    }
+
+    /**
+     * Parse Excel file using PhpSpreadsheet
+     *
+     * @param string $file_path Path to the Excel file.
+     * @return array|WP_Error Parsed data or error.
+     */
+    private function parse_excel_file( $file_path ) {
+        // Check if PhpSpreadsheet is available
+        if ( ! class_exists( '\\PhpOffice\\PhpSpreadsheet\\IOFactory' ) ) {
+            return new \WP_Error(
+                'library_missing',
+                __( 'PhpSpreadsheet library is not installed. Please run "composer install" in the plugin directory.', 'astats-tables-charts' )
+            );
+        }
+
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load( $file_path );
+            $worksheet = $spreadsheet->getActiveSheet();
+            $data = array();
+            $row_count = 0;
+
+            foreach ( $worksheet->getRowIterator() as $row ) {
+                $row_data = array();
+                $cell_iterator = $row->getCellIterator();
+                $cell_iterator->setIterateOnlyExistingCells( false );
+
+                foreach ( $cell_iterator as $cell ) {
+                    $value = $cell->getValue();
+
+                    // Handle formulas - get calculated value
+                    if ( $cell->isFormula() ) {
+                        try {
+                            $value = $cell->getCalculatedValue();
+                        } catch ( \Exception $e ) {
+                            $value = $cell->getValue();
+                        }
+                    }
+
+                    // Handle dates
+                    if ( \PhpOffice\PhpSpreadsheet\Shared\Date::isDateTime( $cell ) ) {
+                        try {
+                            $date_value = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject( $value );
+                            $value = $date_value->format( 'Y-m-d' );
+                        } catch ( \Exception $e ) {
+                            // Keep original value if date conversion fails
+                        }
+                    }
+
+                    $row_data[] = (string) $value;
+                }
+
+                // Skip completely empty rows
+                if ( ! empty( array_filter( $row_data, function( $v ) { return $v !== '' && $v !== null; } ) ) ) {
+                    $data[] = $row_data;
+                    $row_count++;
+                }
+
+                // Limit rows to prevent memory issues
+                if ( $row_count > 10000 ) {
+                    break;
+                }
+            }
+
+            return $data;
+
+        } catch ( \PhpOffice\PhpSpreadsheet\Reader\Exception $e ) {
+            return new \WP_Error( 'read_error', __( 'Could not read Excel file: ', 'astats-tables-charts' ) . $e->getMessage() );
+        } catch ( \Exception $e ) {
+            return new \WP_Error( 'parse_error', __( 'Error parsing Excel file: ', 'astats-tables-charts' ) . $e->getMessage() );
+        }
     }
 }

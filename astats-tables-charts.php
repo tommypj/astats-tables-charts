@@ -28,7 +28,13 @@ define( 'ASTATS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASTATS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'ASTATS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
-// Autoloader
+// Composer autoloader (for phpspreadsheet)
+$composer_autoloader = ASTATS_PLUGIN_DIR . 'vendor/autoload.php';
+if ( file_exists( $composer_autoloader ) ) {
+    require_once $composer_autoloader;
+}
+
+// Plugin Autoloader
 spl_autoload_register( function ( $class ) {
     $prefix = 'AStats\\TablesCharts\\';
     $base_dir = ASTATS_PLUGIN_DIR . 'src/';

@@ -313,7 +313,9 @@
         $modal: null,
         $form: null,
         $submitBtn: null,
-        csvData: null,
+        fileData: null,
+        fileType: null, // 'csv' or 'excel'
+        allowedExtensions: ['csv', 'xlsx', 'xls'],
 
         init: function() {
             this.$modal = $('#astats-import-modal');
@@ -377,7 +379,7 @@
 
             // Has header checkbox change
             $(document).on('change', 'input[name="has_header"]', function() {
-                if (self.csvData) {
+                if (self.fileData) {
                     self.updatePreview();
                 }
             });
@@ -402,10 +404,11 @@
 
         resetForm: function() {
             this.$form[0].reset();
-            this.csvData = null;
+            this.fileData = null;
+            this.fileType = null;
             this.$submitBtn.prop('disabled', true);
             this.$modal.find('.astats-import-preview').hide();
-            this.$modal.find('.astats-file-name').text(astatsTablesAdmin.strings.chooseFile || 'Choose a CSV file or drag it here');
+            this.$modal.find('.astats-file-name').text(astatsTablesAdmin.strings.chooseFile || 'Choose a CSV or Excel file, or drag it here');
         },
 
         handleFileSelect: function(e) {
@@ -415,26 +418,44 @@
                 return;
             }
 
+            // Get file extension
+            var fileName = file.name.toLowerCase();
+            var fileExt = fileName.split('.').pop();
+
             // Validate file type
-            if (!file.name.toLowerCase().endsWith('.csv')) {
-                alert(astatsTablesAdmin.strings.invalidFile || 'Please select a CSV file');
+            if (this.allowedExtensions.indexOf(fileExt) === -1) {
+                alert(astatsTablesAdmin.strings.invalidFile || 'Please select a CSV or Excel file (.csv, .xlsx, .xls)');
                 return;
             }
 
             // Update file name display
             this.$modal.find('.astats-file-name').text(file.name);
 
-            // Read and parse CSV
+            // Determine file type
+            this.fileType = (fileExt === 'csv') ? 'csv' : 'excel';
+
             var self = this;
-            var reader = new FileReader();
 
-            reader.onload = function(event) {
-                self.csvData = self.parseCSV(event.target.result);
-                self.updatePreview();
-                self.$submitBtn.prop('disabled', false);
-            };
+            if (this.fileType === 'csv') {
+                // Read and parse CSV for preview
+                var reader = new FileReader();
 
-            reader.readAsText(file);
+                reader.onload = function(event) {
+                    self.fileData = self.parseCSV(event.target.result);
+                    self.updatePreview();
+                    self.$submitBtn.prop('disabled', false);
+                };
+
+                reader.readAsText(file);
+            } else {
+                // Excel files - can't preview client-side, just enable submit
+                this.fileData = null;
+                this.$modal.find('.astats-import-preview').hide();
+                this.$modal.find('.astats-preview-info').text('Excel file selected. Preview not available for Excel files.');
+                this.$modal.find('.astats-preview-table').html('');
+                this.$modal.find('.astats-import-preview').slideDown();
+                this.$submitBtn.prop('disabled', false);
+            }
         },
 
         parseCSV: function(text) {
@@ -470,7 +491,7 @@
         },
 
         updatePreview: function() {
-            if (!this.csvData || !this.csvData.length) {
+            if (!this.fileData || !this.fileData.length) {
                 return;
             }
 
@@ -479,8 +500,8 @@
             var $table = $preview.find('.astats-preview-table');
             var $info = $preview.find('.astats-preview-info');
 
-            var headers = hasHeader ? this.csvData[0] : [];
-            var dataRows = hasHeader ? this.csvData.slice(1) : this.csvData;
+            var headers = hasHeader ? this.fileData[0] : [];
+            var dataRows = hasHeader ? this.fileData.slice(1) : this.fileData;
             var previewRows = dataRows.slice(0, 5); // Show first 5 rows
 
             // Build preview table
@@ -491,7 +512,7 @@
                     html += '<th>' + this.escapeHtml(headers[i]) + '</th>';
                 }
             } else {
-                for (var j = 0; j < (this.csvData[0] ? this.csvData[0].length : 0); j++) {
+                for (var j = 0; j < (this.fileData[0] ? this.fileData[0].length : 0); j++) {
                     html += '<th>Column ' + (j + 1) + '</th>';
                 }
             }
@@ -511,8 +532,8 @@
             $table.html(html);
 
             // Update info
-            var colCount = this.csvData[0] ? this.csvData[0].length : 0;
-            var rowCount = hasHeader ? this.csvData.length - 1 : this.csvData.length;
+            var colCount = this.fileData[0] ? this.fileData[0].length : 0;
+            var rowCount = hasHeader ? this.fileData.length - 1 : this.fileData.length;
 
             $info.text(
                 (astatsTablesAdmin.strings.previewInfo || 'Preview: {cols} columns, {rows} rows')
@@ -531,6 +552,7 @@
 
         submitImport: function() {
             var title = $('#import-title').val().trim();
+            var fileInput = $('#import-file')[0];
 
             if (!title) {
                 alert(astatsTablesAdmin.strings.titleRequired);
@@ -538,8 +560,8 @@
                 return;
             }
 
-            if (!this.csvData || !this.csvData.length) {
-                alert(astatsTablesAdmin.strings.noFile || 'Please select a CSV file');
+            if (!fileInput.files || !fileInput.files.length) {
+                alert(astatsTablesAdmin.strings.noFile || 'Please select a file');
                 return;
             }
 
@@ -550,7 +572,7 @@
             formData.append('nonce', astatsTablesAdmin.nonce);
             formData.append('title', title);
             formData.append('has_header', $('input[name="has_header"]').is(':checked') ? '1' : '0');
-            formData.append('csv_file', $('#import-file')[0].files[0]);
+            formData.append('import_file', fileInput.files[0]);
 
             this.$submitBtn.prop('disabled', true).text(astatsTablesAdmin.strings.importing || 'Importing...');
 

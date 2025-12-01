@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                 <?php esc_html_e( 'Add New Table', 'astats-tables-charts' ); ?>
             </a>
             <button type="button" class="page-title-action astats-import-btn">
-                <?php esc_html_e( 'Import CSV', 'astats-tables-charts' ); ?>
+                <?php esc_html_e( 'Import', 'astats-tables-charts' ); ?>
             </button>
         </div>
     </div>
@@ -33,7 +33,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                         <?php esc_html_e( 'Create Table', 'astats-tables-charts' ); ?>
                     </a>
                     <button type="button" class="button button-secondary button-hero astats-import-btn">
-                        <?php esc_html_e( 'Import CSV', 'astats-tables-charts' ); ?>
+                        <?php esc_html_e( 'Import File', 'astats-tables-charts' ); ?>
                     </button>
                 </div>
             </div>
@@ -98,7 +98,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     <div class="astats-modal-overlay"></div>
     <div class="astats-modal-content">
         <div class="astats-modal-header">
-            <h2><?php esc_html_e( 'Import Table from CSV', 'astats-tables-charts' ); ?></h2>
+            <h2><?php esc_html_e( 'Import Table', 'astats-tables-charts' ); ?></h2>
             <button type="button" class="astats-modal-close">&times;</button>
         </div>
         <div class="astats-modal-body">
@@ -109,15 +109,15 @@ if ( ! defined( 'ABSPATH' ) ) {
                 </div>
 
                 <div class="astats-field">
-                    <label for="import-file"><?php esc_html_e( 'CSV File', 'astats-tables-charts' ); ?> <span class="required">*</span></label>
+                    <label for="import-file"><?php esc_html_e( 'File', 'astats-tables-charts' ); ?> <span class="required">*</span></label>
                     <div class="astats-file-upload">
-                        <input type="file" id="import-file" name="csv_file" accept=".csv" required>
+                        <input type="file" id="import-file" name="import_file" accept=".csv,.xlsx,.xls" required>
                         <div class="astats-file-upload-info">
                             <span class="dashicons dashicons-upload"></span>
-                            <span class="astats-file-name"><?php esc_html_e( 'Choose a CSV file or drag it here', 'astats-tables-charts' ); ?></span>
+                            <span class="astats-file-name"><?php esc_html_e( 'Choose a CSV or Excel file, or drag it here', 'astats-tables-charts' ); ?></span>
                         </div>
                     </div>
-                    <p class="description"><?php esc_html_e( 'The first row will be used as column headers.', 'astats-tables-charts' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'Supported formats: CSV, Excel (.xlsx, .xls). The first row will be used as column headers.', 'astats-tables-charts' ); ?></p>
                 </div>
 
                 <div class="astats-field">
