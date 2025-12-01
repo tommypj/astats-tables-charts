@@ -1,22 +1,22 @@
 <?php
-/*
+/**
  * Plugin Name: AStats Tables & Charts
  * Plugin URI: https://github.com/tommypj/astats-tables-charts
- * Description: Create beautiful, responsive tables and charts for WordPress with inline editing and multiple themes.
- * Version: 1.0.0
+ * Description: Create beautiful, responsive tables and charts for WordPress.
+ * Version: 1.0.1
  * Author: AStats
  * Author URI: https://astats.io
  * License: GPL v2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: astats-tables-charts
  * Domain Path: /languages
  * Requires at least: 5.0
  * Requires PHP: 7.4
- * * /* --- GIT UPDATER HEADERS --- */
+ *
  * GitHub Plugin URI: tommypj/astats-tables-charts
  * Primary Branch: main
  * Release Asset: true
- * * @package AStats\TablesCharts
+ *
+ * @package AStats\TablesCharts
  */
 
 // Prevent direct access
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants
-define( 'ASTATS_VERSION', '1.0.0' );
+define( 'ASTATS_VERSION', '1.0.1' );
 define( 'ASTATS_PLUGIN_FILE', __FILE__ );
 define( 'ASTATS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASTATS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
