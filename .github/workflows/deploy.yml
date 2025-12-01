@@ -29,7 +29,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps # Change to 'sftp' if your host supports it (Recommended)
           # IMPORTANT: Verify this path matches your server structure!
-          server-dir: /public_html/wp-content/plugins/astats-tables-charts/
+          server-dir: /proworks.tech/wp-content/plugins/astats-tables-charts/
           exclude: |
             **/.git*
             **/.github*
