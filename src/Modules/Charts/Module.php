@@ -22,8 +22,8 @@ class Module extends AbstractModule {
      * Initialize the module
      */
     protected function init() {
-        // Register admin menu
-        add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
+        // Register admin menu (priority 20 to run after parent menu is registered)
+        add_action( 'admin_menu', array( $this, 'register_admin_menu' ), 20 );
 
         // Register shortcode
         add_shortcode( 'astats-chart', array( $this, 'render_shortcode' ) );
