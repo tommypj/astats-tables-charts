@@ -3,7 +3,7 @@
  * Plugin Name: AStats Tables & Charts
  * Plugin URI: https://github.com/tommypj/astats-tables-charts
  * Description: Create beautiful, responsive tables and charts for WordPress.
- * Version: 1.0.3
+ * Version: 1.0.4
  * Author: AStats
  * Author URI: https://astats.io
  * License: GPL v2 or later
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants
-define( 'ASTATS_VERSION', '1.0.3' );
+define( 'ASTATS_VERSION', '1.0.4' );
 define( 'ASTATS_PLUGIN_FILE', __FILE__ );
 define( 'ASTATS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASTATS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
