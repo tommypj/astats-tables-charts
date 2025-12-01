@@ -73,7 +73,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger WordPress Update
-        if: ${{ secrets.WP_URL != '' && secrets.WP_API_KEY != '' }}
+        continue-on-error: true
+        env:
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_API_KEY: ${{ secrets.WP_API_KEY }}
         run: |
-          echo "Triggering update on WordPress..."
-          curl -s -X GET "${{ secrets.WP_URL }}/wp-json/git-updater/v1/update?key=${{ secrets.WP_API_KEY }}&plugin=astats-tables-charts/astats-tables-charts.php" || echo "Update trigger skipped (no WP secrets configured)"
+          if [ -n "$WP_URL" ] && [ -n "$WP_API_KEY" ]; then
+            echo "Triggering update on WordPress..."
+            curl -s -X GET "${WP_URL}/wp-json/git-updater/v1/update?key=${WP_API_KEY}&plugin=astats-tables-charts/astats-tables-charts.php"
+          else
+            echo "Skipping WordPress update trigger (WP_URL or WP_API_KEY not configured)"
+          fi
