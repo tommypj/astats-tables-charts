@@ -1,0 +1,39 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - main  # Runs automatically whenever code hits 'main'
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4' # Matches your WordPress server version
+
+      - name: Install Composer Dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Deploy to Server
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps # Change to 'sftp' if your host supports it (Recommended)
+          # IMPORTANT: Verify this path matches your server structure!
+          server-dir: /proworks.tech/wp-content/plugins/astats-tables-charts/
+          exclude: |
+            **/.git*
+            **/.github*
+            **/tests/**
+            **/bin/**
+            composer.lock
+            *.zip
