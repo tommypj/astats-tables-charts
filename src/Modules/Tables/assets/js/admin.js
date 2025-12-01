@@ -306,8 +306,283 @@
         }
     };
 
+    /**
+     * Import Modal Handler
+     */
+    var ImportModal = {
+        $modal: null,
+        $form: null,
+        $submitBtn: null,
+        csvData: null,
+
+        init: function() {
+            this.$modal = $('#astats-import-modal');
+            this.$form = $('#astats-import-form');
+            this.$submitBtn = $('.astats-import-submit');
+
+            if (!this.$modal.length) {
+                return;
+            }
+
+            this.bindEvents();
+        },
+
+        bindEvents: function() {
+            var self = this;
+
+            // Open modal
+            $(document).on('click', '.astats-import-btn', function(e) {
+                e.preventDefault();
+                self.openModal();
+            });
+
+            // Close modal
+            $(document).on('click', '.astats-modal-close, .astats-modal-cancel, .astats-modal-overlay', function(e) {
+                e.preventDefault();
+                self.closeModal();
+            });
+
+            // Prevent closing when clicking inside modal content
+            this.$modal.find('.astats-modal-content').on('click', function(e) {
+                e.stopPropagation();
+            });
+
+            // File input change
+            $(document).on('change', '#import-file', function(e) {
+                self.handleFileSelect(e);
+            });
+
+            // Drag and drop
+            var $fileUpload = this.$modal.find('.astats-file-upload');
+
+            $fileUpload.on('dragover dragenter', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).addClass('dragover');
+            });
+
+            $fileUpload.on('dragleave drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).removeClass('dragover');
+            });
+
+            $fileUpload.on('drop', function(e) {
+                var files = e.originalEvent.dataTransfer.files;
+                if (files.length) {
+                    $('#import-file')[0].files = files;
+                    self.handleFileSelect({ target: $('#import-file')[0] });
+                }
+            });
+
+            // Has header checkbox change
+            $(document).on('change', 'input[name="has_header"]', function() {
+                if (self.csvData) {
+                    self.updatePreview();
+                }
+            });
+
+            // Submit import
+            this.$submitBtn.on('click', function(e) {
+                e.preventDefault();
+                self.submitImport();
+            });
+        },
+
+        openModal: function() {
+            this.$modal.fadeIn(200);
+            this.resetForm();
+            $('body').addClass('astats-modal-open');
+        },
+
+        closeModal: function() {
+            this.$modal.fadeOut(200);
+            $('body').removeClass('astats-modal-open');
+        },
+
+        resetForm: function() {
+            this.$form[0].reset();
+            this.csvData = null;
+            this.$submitBtn.prop('disabled', true);
+            this.$modal.find('.astats-import-preview').hide();
+            this.$modal.find('.astats-file-name').text(astatsTablesAdmin.strings.chooseFile || 'Choose a CSV file or drag it here');
+        },
+
+        handleFileSelect: function(e) {
+            var file = e.target.files[0];
+
+            if (!file) {
+                return;
+            }
+
+            // Validate file type
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                alert(astatsTablesAdmin.strings.invalidFile || 'Please select a CSV file');
+                return;
+            }
+
+            // Update file name display
+            this.$modal.find('.astats-file-name').text(file.name);
+
+            // Read and parse CSV
+            var self = this;
+            var reader = new FileReader();
+
+            reader.onload = function(event) {
+                self.csvData = self.parseCSV(event.target.result);
+                self.updatePreview();
+                self.$submitBtn.prop('disabled', false);
+            };
+
+            reader.readAsText(file);
+        },
+
+        parseCSV: function(text) {
+            var lines = text.split(/\r\n|\n/);
+            var result = [];
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (!line) continue;
+
+                // Simple CSV parsing (handles basic cases)
+                var row = [];
+                var inQuotes = false;
+                var field = '';
+
+                for (var j = 0; j < line.length; j++) {
+                    var char = line[j];
+
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(field.trim());
+                        field = '';
+                    } else {
+                        field += char;
+                    }
+                }
+                row.push(field.trim());
+                result.push(row);
+            }
+
+            return result;
+        },
+
+        updatePreview: function() {
+            if (!this.csvData || !this.csvData.length) {
+                return;
+            }
+
+            var hasHeader = $('input[name="has_header"]').is(':checked');
+            var $preview = this.$modal.find('.astats-import-preview');
+            var $table = $preview.find('.astats-preview-table');
+            var $info = $preview.find('.astats-preview-info');
+
+            var headers = hasHeader ? this.csvData[0] : [];
+            var dataRows = hasHeader ? this.csvData.slice(1) : this.csvData;
+            var previewRows = dataRows.slice(0, 5); // Show first 5 rows
+
+            // Build preview table
+            var html = '<thead><tr>';
+
+            if (hasHeader) {
+                for (var i = 0; i < headers.length; i++) {
+                    html += '<th>' + this.escapeHtml(headers[i]) + '</th>';
+                }
+            } else {
+                for (var j = 0; j < (this.csvData[0] ? this.csvData[0].length : 0); j++) {
+                    html += '<th>Column ' + (j + 1) + '</th>';
+                }
+            }
+
+            html += '</tr></thead><tbody>';
+
+            for (var k = 0; k < previewRows.length; k++) {
+                html += '<tr>';
+                for (var l = 0; l < previewRows[k].length; l++) {
+                    html += '<td>' + this.escapeHtml(previewRows[k][l]) + '</td>';
+                }
+                html += '</tr>';
+            }
+
+            html += '</tbody>';
+
+            $table.html(html);
+
+            // Update info
+            var colCount = this.csvData[0] ? this.csvData[0].length : 0;
+            var rowCount = hasHeader ? this.csvData.length - 1 : this.csvData.length;
+
+            $info.text(
+                (astatsTablesAdmin.strings.previewInfo || 'Preview: {cols} columns, {rows} rows')
+                    .replace('{cols}', colCount)
+                    .replace('{rows}', rowCount)
+            );
+
+            $preview.slideDown();
+        },
+
+        escapeHtml: function(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        submitImport: function() {
+            var title = $('#import-title').val().trim();
+
+            if (!title) {
+                alert(astatsTablesAdmin.strings.titleRequired);
+                $('#import-title').focus();
+                return;
+            }
+
+            if (!this.csvData || !this.csvData.length) {
+                alert(astatsTablesAdmin.strings.noFile || 'Please select a CSV file');
+                return;
+            }
+
+            var self = this;
+            var formData = new FormData();
+
+            formData.append('action', 'astats_tables_import');
+            formData.append('nonce', astatsTablesAdmin.nonce);
+            formData.append('title', title);
+            formData.append('has_header', $('input[name="has_header"]').is(':checked') ? '1' : '0');
+            formData.append('csv_file', $('#import-file')[0].files[0]);
+
+            this.$submitBtn.prop('disabled', true).text(astatsTablesAdmin.strings.importing || 'Importing...');
+
+            $.ajax({
+                url: astatsTablesAdmin.ajaxUrl,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        if (response.data.redirect) {
+                            window.location.href = response.data.redirect;
+                        } else {
+                            location.reload();
+                        }
+                    } else {
+                        alert(response.data.message || astatsTablesAdmin.strings.error);
+                        self.$submitBtn.prop('disabled', false).text(astatsTablesAdmin.strings.importBtn || 'Import Table');
+                    }
+                },
+                error: function() {
+                    alert(astatsTablesAdmin.strings.error);
+                    self.$submitBtn.prop('disabled', false).text(astatsTablesAdmin.strings.importBtn || 'Import Table');
+                }
+            });
+        }
+    };
+
     $(document).ready(function() {
         TableEditor.init();
+        ImportModal.init();
     });
 
 })(jQuery);

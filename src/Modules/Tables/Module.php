@@ -38,6 +38,7 @@ class Module extends AbstractModule {
         add_action( 'wp_ajax_astats_tables_save', array( $this, 'ajax_save_table' ) );
         add_action( 'wp_ajax_astats_tables_delete', array( $this, 'ajax_delete_table' ) );
         add_action( 'wp_ajax_astats_tables_get', array( $this, 'ajax_get_table' ) );
+        add_action( 'wp_ajax_astats_tables_import', array( $this, 'ajax_import_csv' ) );
     }
 
     /**
@@ -65,6 +66,9 @@ class Module extends AbstractModule {
             case 'new':
             case 'edit':
                 $this->render_editor( $table_id );
+                break;
+            case 'export':
+                $this->export_csv( $table_id );
                 break;
             default:
                 $this->render_list();
@@ -127,6 +131,12 @@ class Module extends AbstractModule {
                 'confirmDelete' => __( 'Are you sure you want to delete this table?', 'astats-tables-charts' ),
                 'error'         => __( 'An error occurred', 'astats-tables-charts' ),
                 'titleRequired' => __( 'Please enter a table title', 'astats-tables-charts' ),
+                'chooseFile'    => __( 'Choose a CSV file or drag it here', 'astats-tables-charts' ),
+                'invalidFile'   => __( 'Please select a CSV file', 'astats-tables-charts' ),
+                'noFile'        => __( 'Please select a CSV file', 'astats-tables-charts' ),
+                'importing'     => __( 'Importing...', 'astats-tables-charts' ),
+                'importBtn'     => __( 'Import Table', 'astats-tables-charts' ),
+                'previewInfo'   => __( 'Preview: {cols} columns, {rows} rows', 'astats-tables-charts' ),
             ),
         ) );
     }
@@ -409,6 +419,210 @@ class Module extends AbstractModule {
             'table'   => $table,
             'columns' => $this->get_columns( $table_id ),
             'rows'    => $this->get_rows( $table_id ),
+        ) );
+    }
+
+    /**
+     * Export table to CSV
+     *
+     * @param int $table_id Table ID.
+     */
+    private function export_csv( $table_id ) {
+        // Verify nonce
+        if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'astats_export_' . $table_id ) ) {
+            wp_die( esc_html__( 'Security check failed', 'astats-tables-charts' ) );
+        }
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Unauthorized', 'astats-tables-charts' ) );
+        }
+
+        $table = $this->get_table( $table_id );
+
+        if ( ! $table ) {
+            wp_die( esc_html__( 'Table not found', 'astats-tables-charts' ) );
+        }
+
+        $columns = $this->get_columns( $table_id );
+        $rows = $this->get_rows( $table_id );
+
+        // Set headers for CSV download
+        $filename = sanitize_file_name( $table->title ) . '-' . gmdate( 'Y-m-d' ) . '.csv';
+
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        $output = fopen( 'php://output', 'w' );
+
+        // Add BOM for Excel compatibility
+        fprintf( $output, chr( 0xEF ) . chr( 0xBB ) . chr( 0xBF ) );
+
+        // Write column headers
+        $header_row = array();
+        foreach ( $columns as $column ) {
+            $header_row[] = $column->column_name;
+        }
+        fputcsv( $output, $header_row );
+
+        // Write data rows
+        foreach ( $rows as $row ) {
+            $row_data = json_decode( $row->row_data, true ) ?: array();
+            $csv_row = array();
+
+            foreach ( $columns as $index => $column ) {
+                $csv_row[] = isset( $row_data[ 'col_' . $index ] ) ? $row_data[ 'col_' . $index ] : '';
+            }
+
+            fputcsv( $output, $csv_row );
+        }
+
+        fclose( $output );
+        exit;
+    }
+
+    /**
+     * AJAX: Import CSV file
+     */
+    public function ajax_import_csv() {
+        check_ajax_referer( 'astats_tables_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Unauthorized', 'astats-tables-charts' ) ) );
+        }
+
+        // Check if file was uploaded
+        if ( ! isset( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK ) {
+            wp_send_json_error( array( 'message' => __( 'No file uploaded or upload error', 'astats-tables-charts' ) ) );
+        }
+
+        $title = isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '';
+        $has_header = isset( $_POST['has_header'] ) && '1' === $_POST['has_header'];
+
+        if ( empty( $title ) ) {
+            wp_send_json_error( array( 'message' => __( 'Title is required', 'astats-tables-charts' ) ) );
+        }
+
+        // Validate file type
+        $file = $_FILES['csv_file'];
+        $file_ext = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+
+        if ( 'csv' !== $file_ext ) {
+            wp_send_json_error( array( 'message' => __( 'Only CSV files are allowed', 'astats-tables-charts' ) ) );
+        }
+
+        // Read CSV file
+        $handle = fopen( $file['tmp_name'], 'r' );
+
+        if ( ! $handle ) {
+            wp_send_json_error( array( 'message' => __( 'Could not read file', 'astats-tables-charts' ) ) );
+        }
+
+        $csv_data = array();
+        $row_count = 0;
+
+        while ( ( $row = fgetcsv( $handle ) ) !== false ) {
+            // Skip empty rows
+            if ( empty( array_filter( $row ) ) ) {
+                continue;
+            }
+            $csv_data[] = $row;
+            $row_count++;
+
+            // Limit rows to prevent memory issues
+            if ( $row_count > 10000 ) {
+                break;
+            }
+        }
+
+        fclose( $handle );
+
+        if ( empty( $csv_data ) ) {
+            wp_send_json_error( array( 'message' => __( 'CSV file is empty', 'astats-tables-charts' ) ) );
+        }
+
+        // Extract columns and rows
+        if ( $has_header ) {
+            $columns = array_shift( $csv_data );
+        } else {
+            // Generate column names
+            $col_count = count( $csv_data[0] );
+            $columns = array();
+            for ( $i = 1; $i <= $col_count; $i++ ) {
+                $columns[] = sprintf( __( 'Column %d', 'astats-tables-charts' ), $i );
+            }
+        }
+
+        // Sanitize column names
+        $columns = array_map( 'sanitize_text_field', $columns );
+
+        global $wpdb;
+
+        $tables_table = $wpdb->prefix . 'astats_tables_tables';
+        $columns_table = $wpdb->prefix . 'astats_tables_columns';
+        $rows_table = $wpdb->prefix . 'astats_tables_rows';
+
+        // Create table
+        $wpdb->insert(
+            $tables_table,
+            array(
+                'title'       => $title,
+                'description' => '',
+                'settings'    => wp_json_encode( array( 'theme' => 'default' ) ),
+                'created_at'  => current_time( 'mysql' ),
+                'updated_at'  => current_time( 'mysql' ),
+            ),
+            array( '%s', '%s', '%s', '%s', '%s' )
+        );
+
+        $table_id = $wpdb->insert_id;
+
+        if ( ! $table_id ) {
+            wp_send_json_error( array( 'message' => __( 'Failed to create table', 'astats-tables-charts' ) ) );
+        }
+
+        // Insert columns
+        foreach ( $columns as $order => $column_name ) {
+            $wpdb->insert(
+                $columns_table,
+                array(
+                    'table_id'     => $table_id,
+                    'column_name'  => $column_name,
+                    'column_order' => $order,
+                ),
+                array( '%d', '%s', '%d' )
+            );
+        }
+
+        // Insert rows
+        foreach ( $csv_data as $order => $row ) {
+            $row_data = array();
+
+            foreach ( $row as $col_index => $value ) {
+                $row_data[ 'col_' . $col_index ] = sanitize_text_field( $value );
+            }
+
+            $wpdb->insert(
+                $rows_table,
+                array(
+                    'table_id'  => $table_id,
+                    'row_data'  => wp_json_encode( $row_data ),
+                    'row_order' => $order,
+                ),
+                array( '%d', '%s', '%d' )
+            );
+        }
+
+        wp_send_json_success( array(
+            'message'  => sprintf(
+                /* translators: 1: number of columns, 2: number of rows */
+                __( 'Table imported successfully with %1$d columns and %2$d rows', 'astats-tables-charts' ),
+                count( $columns ),
+                count( $csv_data )
+            ),
+            'table_id' => $table_id,
+            'redirect' => admin_url( 'admin.php?page=astats-tables&action=edit&id=' . $table_id ),
         ) );
     }
 }

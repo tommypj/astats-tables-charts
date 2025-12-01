@@ -373,6 +373,205 @@
     border-top: 1px solid #eee;
 }
 
+/* Header Actions */
+.astats-header-actions {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.astats-empty-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Actions Column - wider for export button */
+.astats-tables-table .column-actions {
+    width: 200px;
+}
+
+/* Modal */
+.astats-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.astats-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.astats-modal-content {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin: 20px;
+}
+
+.astats-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.astats-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.astats-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    width: 30px;
+    height: 30px;
+}
+
+.astats-modal-close:hover {
+    color: #000;
+}
+
+.astats-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.astats-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    background: #f8f9fa;
+}
+
+body.astats-modal-open {
+    overflow: hidden;
+}
+
+/* File Upload */
+.astats-file-upload {
+    position: relative;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    transition: border-color 0.2s, background-color 0.2s;
+    cursor: pointer;
+}
+
+.astats-file-upload:hover,
+.astats-file-upload.dragover {
+    border-color: #3498db;
+    background: rgba(52, 152, 219, 0.05);
+}
+
+.astats-file-upload input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.astats-file-upload-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+}
+
+.astats-file-upload-info .dashicons {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: #3498db;
+}
+
+.astats-file-name {
+    font-size: 14px;
+}
+
+/* Import Preview */
+.astats-import-preview {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.astats-import-preview h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.astats-preview-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    max-height: 200px;
+}
+
+.astats-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.astats-preview-table th,
+.astats-preview-table td {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.astats-preview-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.astats-preview-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.astats-preview-info {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #666;
+}
+
 /* Responsive */
 @media screen and (max-width: 960px) {
     .astats-editor-container {
@@ -381,5 +580,10 @@
 
     .astats-editor-sidebar {
         order: -1;
+    }
+
+    .astats-modal-content {
+        margin: 10px;
+        max-height: calc(100vh - 20px);
     }
 }
