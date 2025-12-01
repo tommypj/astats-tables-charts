@@ -71,3 +71,9 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger WordPress Update
+        if: ${{ secrets.WP_URL != '' && secrets.WP_API_KEY != '' }}
+        run: |
+          echo "Triggering update on WordPress..."
+          curl -s -X GET "${{ secrets.WP_URL }}/wp-json/git-updater/v1/update?key=${{ secrets.WP_API_KEY }}&plugin=astats-tables-charts/astats-tables-charts.php" || echo "Update trigger skipped (no WP secrets configured)"
