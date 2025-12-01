@@ -80,7 +80,7 @@ jobs:
         run: |
           if [ -n "$WP_URL" ] && [ -n "$WP_API_KEY" ]; then
             echo "Triggering update on WordPress..."
-            curl -s -X GET "${WP_URL}/wp-json/git-updater/v1/update?key=${WP_API_KEY}&plugin=astats-tables-charts/astats-tables-charts.php"
+            curl -sS -k -X GET "${WP_URL}/wp-json/git-updater/v1/update?key=${WP_API_KEY}&plugin=astats-tables-charts/astats-tables-charts.php" || true
           else
             echo "Skipping WordPress update trigger (WP_URL or WP_API_KEY not configured)"
           fi
