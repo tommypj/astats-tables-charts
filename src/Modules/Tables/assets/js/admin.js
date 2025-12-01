@@ -194,6 +194,11 @@
                 var name = $(this).attr('name').match(/settings\[(\w+)\]/)[1];
                 if ($(this).is(':checkbox')) {
                     settings[name] = $(this).is(':checked') ? '1' : '0';
+                } else if ($(this).is(':radio')) {
+                    // Only get value from checked radio button
+                    if ($(this).is(':checked')) {
+                        settings[name] = $(this).val();
+                    }
                 } else {
                     settings[name] = $(this).val();
                 }
